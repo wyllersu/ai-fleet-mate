@@ -6,6 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { z } from "zod";
+
+const vehicleSchema = z.object({
+  vehicle_number: z.string().trim().min(1, "Número do veículo é obrigatório"),
+  license_plate: z.string().trim().min(1, "Placa é obrigatória"),
+  brand: z.string().trim().min(1, "Marca é obrigatória"),
+  model: z.string().trim().min(1, "Modelo é obrigatório"),
+  year: z.number().int().min(1900, "Ano inválido").max(new Date().getFullYear(), "Ano não pode ser no futuro"),
+  km_current: z.number().int().min(0, "Quilometragem não pode ser negativa"),
+  status: z.string(),
+});
+
+type VehicleFormData = z.infer<typeof vehicleSchema>;
 
 interface VehicleDialogProps {
   open: boolean;
@@ -14,7 +27,7 @@ interface VehicleDialogProps {
 }
 
 export function VehicleDialog({ open, onClose, onSuccess }: VehicleDialogProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<VehicleFormData>({
     vehicle_number: "",
     license_plate: "",
     brand: "",
@@ -25,17 +38,22 @@ export function VehicleDialog({ open, onClose, onSuccess }: VehicleDialogProps) 
   });
 
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Partial<Record<keyof VehicleFormData, string>>>({});
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setErrors({});
     setLoading(true);
 
     try {
+      // Validate form data
+      const validatedData = vehicleSchema.parse(formData);
+
       // Check if vehicle_number already exists
       const { data: existingVehicle } = await supabase
         .from("vehicles")
         .select("id")
-        .eq("vehicle_number", formData.vehicle_number)
+        .eq("vehicle_number", validatedData.vehicle_number)
         .single();
 
       if (existingVehicle) {
@@ -44,7 +62,15 @@ export function VehicleDialog({ open, onClose, onSuccess }: VehicleDialogProps) 
         return;
       }
 
-      const { error } = await supabase.from("vehicles").insert([formData]);
+      const { error } = await supabase.from("vehicles").insert([{
+        vehicle_number: validatedData.vehicle_number,
+        license_plate: validatedData.license_plate,
+        brand: validatedData.brand,
+        model: validatedData.model,
+        year: validatedData.year,
+        km_current: validatedData.km_current,
+        status: validatedData.status,
+      }]);
 
       if (error) throw error;
 
@@ -61,7 +87,17 @@ export function VehicleDialog({ open, onClose, onSuccess }: VehicleDialogProps) 
         status: "Ativo",
       });
     } catch (error: any) {
-      toast.error(error.message || "Erro ao cadastrar veículo");
+      if (error instanceof z.ZodError) {
+        const fieldErrors: Partial<Record<keyof VehicleFormData, string>> = {};
+        error.errors.forEach((err) => {
+          if (err.path[0]) {
+            fieldErrors[err.path[0] as keyof VehicleFormData] = err.message;
+          }
+        });
+        setErrors(fieldErrors);
+      } else {
+        toast.error(error.message || "Erro ao cadastrar veículo");
+      }
     } finally {
       setLoading(false);
     }
@@ -87,6 +123,7 @@ export function VehicleDialog({ open, onClose, onSuccess }: VehicleDialogProps) 
               onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value })}
               placeholder="Ex: V001"
             />
+            {errors.vehicle_number && <p className="text-sm text-destructive">{errors.vehicle_number}</p>}
           </div>
 
           <div className="space-y-2">
@@ -98,6 +135,7 @@ export function VehicleDialog({ open, onClose, onSuccess }: VehicleDialogProps) 
               onChange={(e) => setFormData({ ...formData, license_plate: e.target.value })}
               placeholder="Ex: ABC-1234"
             />
+            {errors.license_plate && <p className="text-sm text-destructive">{errors.license_plate}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -110,6 +148,7 @@ export function VehicleDialog({ open, onClose, onSuccess }: VehicleDialogProps) 
                 onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
                 placeholder="Ex: Fiat"
               />
+              {errors.brand && <p className="text-sm text-destructive">{errors.brand}</p>}
             </div>
 
             <div className="space-y-2">
@@ -121,6 +160,7 @@ export function VehicleDialog({ open, onClose, onSuccess }: VehicleDialogProps) 
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                 placeholder="Ex: Uno"
               />
+              {errors.model && <p className="text-sm text-destructive">{errors.model}</p>}
             </div>
           </div>
 
@@ -134,6 +174,7 @@ export function VehicleDialog({ open, onClose, onSuccess }: VehicleDialogProps) 
                 value={formData.year}
                 onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
               />
+              {errors.year && <p className="text-sm text-destructive">{errors.year}</p>}
             </div>
 
             <div className="space-y-2">
@@ -145,6 +186,7 @@ export function VehicleDialog({ open, onClose, onSuccess }: VehicleDialogProps) 
                 value={formData.km_current}
                 onChange={(e) => setFormData({ ...formData, km_current: parseInt(e.target.value) })}
               />
+              {errors.km_current && <p className="text-sm text-destructive">{errors.km_current}</p>}
             </div>
           </div>
 

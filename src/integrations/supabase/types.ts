@@ -114,7 +114,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      register_maintenance_and_update_km: {
+        Args: {
+          p_attachment_url: string
+          p_cost: number
+          p_description: string
+          p_km_at_service: number
+          p_service_date: string
+          p_service_type: string
+          p_vehicle_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

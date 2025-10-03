@@ -33,6 +33,7 @@ interface Maintenance {
 
 export function VehicleDetailDialog({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => void }) {
   const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (vehicle) {
@@ -41,6 +42,7 @@ export function VehicleDetailDialog({ vehicle, onClose }: { vehicle: Vehicle; on
   }, [vehicle]);
 
   async function fetchMaintenances() {
+    setLoading(true);
     const { data } = await supabase
       .from("maintenances")
       .select("*")
@@ -48,6 +50,7 @@ export function VehicleDetailDialog({ vehicle, onClose }: { vehicle: Vehicle; on
       .order("created_at", { ascending: false });
 
     if (data) setMaintenances(data);
+    setLoading(false);
   }
 
   return (
@@ -102,10 +105,17 @@ export function VehicleDetailDialog({ vehicle, onClose }: { vehicle: Vehicle; on
             Histórico de Manutenções
           </h3>
 
-          {maintenances.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
-              Nenhuma manutenção registrada para este veículo
-            </p>
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+              <p className="text-muted-foreground mt-4">Carregando histórico...</p>
+            </div>
+          ) : maintenances.length === 0 ? (
+            <div className="text-center py-12 bg-muted/30 rounded-lg border-2 border-dashed border-border">
+              <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+              <p className="text-muted-foreground font-medium">Nenhuma manutenção registrada</p>
+              <p className="text-muted-foreground text-sm mt-1">Este veículo ainda não possui histórico de serviços</p>
+            </div>
           ) : (
             <div className="space-y-3">
               {maintenances.map((maintenance) => (
